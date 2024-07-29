@@ -8,6 +8,7 @@ from vector_store.node import TextNode, VectorStoreQueryResult
 from vector_store.semantic_vector_store import SemanticVectorStore
 from vector_store.sparse_vector_store import SparseVectorStore
 
+from transformers import pipeline
 
 def prepare_data_nodes(documents: list, chunk_size: int = 200) -> list[TextNode]:
     """
@@ -74,7 +75,7 @@ class RAGPipeline:
         self.prompt_template = prompt_template
 
         # choose your model from groq or openai/azure
-        self.model = None
+        self.model = pipeline("question-answering", model='deepset/roberta-base-squad2')
 
         # GROQ
         # from langchain_groq import ChatGroq
@@ -94,17 +95,22 @@ class RAGPipeline:
         context_list = [node.text for node in result.nodes]
         context = "\n\n".join(context_list)
 
-        self.prompt_template = (
-            f"""Question: {query}\n\nGiven context: {context}\n\nAnswer:"""
-        )
+        # self.prompt_template = (
+        #     f"""Question: {query}\n\nGiven context: {context}\n\nAnswer:"""
+        # )
+
+        self.prompt_template = {
+            'question': query,
+            'context': context
+        }
 
         if not self.model:
             raise ValueError("Model not found. Please initialize the model first.")
         try:
-            response = self.model.invoke(self.prompt_template)
+            response = self.model(self.prompt_template, max_new_tokens=512)['answer']
         except Exception as e:
             raise Exception(f"Error in calling the model: {e}")
-        return response.content, context_list
+        return response, context_list
 
 
 def main(
@@ -140,6 +146,7 @@ def main(
     # we will loop through each paper, gather the full text of each section
     # and prepare the documents for the vector store
     # and answer the query
+
     for _, values in raw_data.items():
         # for each paper in qasper
         documents = []

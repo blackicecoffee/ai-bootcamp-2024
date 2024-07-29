@@ -117,7 +117,7 @@ class SparseVectorStore(BaseVectorStore):
         # Calculate the inverse document frequency for a word
         # HINT: Use the formula provided in the BM25 algorithm and np.log()
         "Your code here"
-        idf_score = None
+        idf_score = np.log(1 + ((corpus_size - doc_count + 0.5) / (doc_count + 0.5))).item()
         return idf_score
 
     def _tokenize_text(self, corpus: List[str] | str):
@@ -132,6 +132,9 @@ class SparseVectorStore(BaseVectorStore):
         """Add nodes to index."""
         for node in nodes:
             self.node_dict[node.id_] = node
+
+        self.node_list = list(self.node_dict.values())
+
         self._update_csv()  # Update CSV after adding nodes
 
         # Reinitialize BM25 assets after adding new nodes
@@ -150,11 +153,22 @@ class SparseVectorStore(BaseVectorStore):
     def get_scores(self, query: str):
         score = np.zeros(self.corpus_size)
         tokenized_query = self._tokenize_text(query)
+
+        k1 = 1.5
+        b = 0.75
+
         for q in tokenized_query:
             # calulate the score for each token in the query
             # HINT: use self.doc_freqs, self.idf, self.corpus_size, self.avgdl
             "Your code here"
-            cur_score = None
+            word_freqs = np.array([0 if q not in self.doc_freqs[i] else self.doc_freqs[i][q] \
+                          for i in range(self.corpus_size)])
+            
+            word_idf = self.idf[q] if q in self.idf else self._calculate_idf(1, self.corpus_size)
+
+            cur_score = np.array(
+                word_idf * word_freqs * (k1 + 1) / (word_freqs + k1 * (1 - b + b * np.array(self.doc_len) / self.avgdl))
+            )
             score += cur_score
         return score
 
